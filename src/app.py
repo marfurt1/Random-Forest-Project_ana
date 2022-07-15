@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
 from sklearn.model_selection import GridSearchCV
-from sklearn.pipeline import make_pipeline
+from sklearn.pipeline import make_pipeline, Pipeline
 import pickle
 from sklearn.model_selection import cross_val_score
 from sklearn.tree import DecisionTreeClassifier
@@ -19,70 +19,83 @@ from sklearn.metrics import ConfusionMatrixDisplay
 from sklearn.metrics import classification_report
 import seaborn as sns
 from sklearn.model_selection import RandomizedSearchCV
-
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
 
 ## Read data
 url='https://raw.githubusercontent.com/4GeeksAcademy/random-forest-project-tutorial/main/titanic_train.csv'
 df_raw = pd.read_csv(url)
 
-## Copy data
-df = df_raw.copy()
 
 ## Check duplicates
 df_duplicates = df['PassengerId'].duplicated().sum()
 print(f'It seems that there are {df_duplicates} duplicated passenger according to the PassengerId feature.')
 
 ## Drop irrelevant columns
+
+df_transf = df_raw.copy()
 drop_cols = ['PassengerId','Cabin', 'Ticket', 'Name']
-df = df.drop(drop_cols, axis = 1)
+df_transf = df_transf.drop(drop_cols, axis = 1)
+
+df = df_transf.copy()
 
 
-## Fill missing values
+# Split the dataset so to avoid bias
 
-# Fill missing values of age with mean by sex
-#  
-df.loc[df['Sex']=='female','Age']=df[(df['Sex']=='female')].fillna(df.loc[df['Sex']=='female','Age'].mean())
+X = df.drop('Survived', axis=1)
+y = df['Survived']
 
-df.loc[df['Sex']=='male','Age']=df[(df['Sex']=='male')].fillna(df.loc[df['Sex']=='male','Age'].mean())
-
-# Fill missing values of Embarked with mode
-
-df['Embarked']=df['Embarked'].fillna(df['Embarked'].mode()[0])
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=28)
 
 
-## Encoding categorical variables
+## Process data before modelling
 
-# Change type of variables 
+# Fill missing values for Age and Embarked
 
-df[['Sex','Embarked']]=df[['Sex','Embarked']].astype('category')
+# Nan values of Age will be replaced by the mean
+# Nan values of Embarked will be replaced by the mode
 
-# Encoding
+imputer_mean = SimpleImputer(strategy='mean', missing_values=np.nan)
+imputer_mean = imputer_mean.fit(X_train[['Age']])
+X_train['Age'] = imputer_mean.transform(X_train[['Age']])
 
-df['Sex']=df['Sex'].cat.codes
 
-df['Embarked']=df['Embarked'].cat.codes
+imputer_mode = SimpleImputer(strategy='most_frequent', missing_values=np.nan)
+imputer_mode = imputer_mode.fit(X_train[['Embarked']])
+X_train['Embarked'] = imputer_mode.transform(X_train[['Embarked']])
+
+
+# Tranform the X_test with mean (of age) and mode (of embarked) from the train data
+
+X_test['Age'] = imputer_mean.transform(X_test[['Age']])
+
+X_test['Embarked'] = imputer_mode.transform(X_test[['Embarked']])
+
+
+# Create dummies for categorical variables
+
+X_train = pd.get_dummies(X_train, prefix=['Sex', 'Embarked'])
+
+X_test = pd.get_dummies(X_test, prefix=['Sex', 'Embarked'])
+
+
 
 
 ## Start modeling
 
 # Train, test datasets
 
-X = df.drop('Survived', axis=1)
-
-y= df['Survived']
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1107)
-
 
 ## 1. Random forest with default hyperparameters
 
-rfc1 = RandomForestClassifier(random_state=1107)
+rfc = RandomForestClassifier(random_state=1107)
 
-rfc1.fit(X_train, y_train)
+rfc.fit(X_train, y_train)
 
-y_pred = rfc1.predict(X_test)
+print(f'Accuracy in train dataset: {rfc.score(X_train, y_train)}')
 
-print('Accuracy Random Forest with default parameters in test set:',rfc1.score(X_test, y_test))
+print(f'Accuracy in test dataset: {rfc.score(X_test, y_test)}')
 
 
 ## 2. Optimize model hyperparameters to select the better forest
@@ -93,16 +106,21 @@ param_grid = [{'max_depth': [8, 12, 16],
          'min_samples_split': [12, 16, 20], 
          'criterion': ['gini', 'entropy']}]
 
+# GridSearchCV 
+
 rfc2=RandomForestClassifier(random_state=1107)
 
-grid=GridSearchCV(estimator=rfc2,param_grid=param_grid, cv=5, n_jobs=-1,verbose=2)
+grid =  GridSearchCV(estimator=rfc2, param_grid=param_grid, cv=5, n_jobs=-1, verbose=2)
 
-grid.fit(X_train,y_train)
+grid.fit(X_train, y_train)
 
 # save best estimator into model_cv
 model_cv=grid.best_estimator_
 
 print('Accuracy of random forest selected by CV in test set (grid search):',grid.score(X_test, y_test))
+
+
+
 
 
 # 2.2 Randomized search CV
