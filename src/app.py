@@ -73,11 +73,17 @@ X_test['Age'] = imputer_mean.transform(X_test[['Age']])
 X_test['Embarked'] = imputer_mode.transform(X_test[['Embarked']])
 
 
-# Create dummies for categorical variables
+# Encode categorical variables: Age and Embarked
 
-X_train = pd.get_dummies(X_train, prefix=['Sex', 'Embarked'])
+X_train[['Sex','Embarked']]=X_train[['Sex','Embarked']].astype('category')
+X_test[['Sex','Embarked']]=X_test[['Sex','Embarked']].astype('category')
 
-X_test = pd.get_dummies(X_test, prefix=['Sex', 'Embarked'])
+
+X_train['Sex']=X_train['Sex'].cat.codes
+X_train['Embarked']=X_train['Embarked'].cat.codes
+
+X_test['Sex']=X_test['Sex'].cat.codes
+X_test['Embarked']=X_test['Embarked'].cat.codes
 
 
 
