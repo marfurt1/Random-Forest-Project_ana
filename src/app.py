@@ -174,3 +174,34 @@ print('Accuracy of random forest selected by CV in test set (random grid search)
 # Save best estimator in models folder for future data
 filename = '../models/final_model.sav'
 pickle.dump(model_cv_2, open(filename, 'wb'))
+
+
+## 3. XGBoost
+
+# 3.1 XGBoost with default hyperparameters
+
+xgb = XGBClassifier(use_label_encoder=False, eval_metric='mlogloss')
+xgb.fit(X_train, y_train)
+y_xgb_pred = xgb.predict(X_test)
+print('Accuracy of xgboost in test set:',accuracy_score(y_test, y_xgb_pred))
+
+
+# 3.2 XGBoost with hyperparameters selected by random grid search
+
+xgb_2 = XGBClassifier()
+parameters = {
+     "eta"    : [0.05, 0.10, 0.15, 0.20, 0.25, 0.30 ] ,
+     "max_depth"        : [ 3, 4, 5, 6, 8, 10, 12, 15],
+     "min_child_weight" : [ 1, 3, 5, 7 ],
+     "gamma"            : [ 0.0, 0.1, 0.2 , 0.3, 0.4 ],
+     "colsample_bytree" : [ 0.3, 0.4, 0.5 , 0.7 ]
+     }
+
+grid_xgb = RandomizedSearchCV(xgb_2,
+                    parameters, n_jobs=4,
+                    scoring="neg_log_loss",
+                    cv=3)
+
+xgb_2 = grid_xgb.best_estimator_
+y_pred_xgb_2 = xgb_2.predict(X_test)
+print('Accuracy of xgboost with hyperparameters selected by random grid search in test set:',accuracy_score(y_test, y_pred_xgb_2))
