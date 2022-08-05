@@ -172,7 +172,7 @@ print('Accuracy of random forest selected by CV in test set (random grid search)
 
 
 # Save best estimator in models folder for future data
-filename = '../models/final_model.sav'
+filename = '../models/modelo_random_forest.sav'
 pickle.dump(model_cv_2, open(filename, 'wb'))
 
 
